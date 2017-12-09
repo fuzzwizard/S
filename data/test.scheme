@@ -1,0 +1,13 @@
+#program
+(+ 3 3)
+
+#program
+(define hello-world
+  (lambda ()
+    (begin
+      (write Hello-World)
+      (newline)
+      (hello-world)
+    )
+  )
+)
