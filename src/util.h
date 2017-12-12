@@ -56,7 +56,7 @@ inline void memmove(void *dest, void *source, size_t n) {
 
 inline size_t strlen(char *target) {
   size_t result = 0;
-  while (*target) {
+  while (target[result] != '\0') {
     result++;
   }
   return result;
