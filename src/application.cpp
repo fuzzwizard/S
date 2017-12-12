@@ -101,10 +101,13 @@ const char *token_type_get_string(Token_Type type) {
 size_t find_boundary_index(char *seek_ptr, size_t start_index) {
   assert(seek_ptr);
   size_t counter = start_index;
-  for (char it = seek_ptr[counter];; counter++, it = seek_ptr[counter]) {
+  for (;;) {
+    char it = seek_ptr[counter];
     if (IsWhiteSpace(it) || IsBoundary(it)) {
       break;
     }
+    it = seek_ptr[counter];
+    counter++;
   }
   return counter;
 }
@@ -238,6 +241,7 @@ int main(int argc, char *argv[]) {
     printf("> ");
     getline(&program_buffer, &program_size, stdin);
 
+    // read the line
     if (util::strncmp(program_buffer, "!exit", 5) == 0) {
       printf("Exiting.\n");
       break;
