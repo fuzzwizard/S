@@ -241,6 +241,11 @@ int main(int argc, char *argv[]) {
     printf("> ");
     getline(&program_buffer, &program_size, stdin);
 
+    if (util::strncmp(program_buffer, "!exit", 5) == 0) {
+      printf("Exiting.\n");
+      break;
+    }
+
     auto token_stream = tokenize(&program_buffer, program_size);
     defer(token_stream_free(&token_stream));
 
