@@ -44,6 +44,7 @@ enum Token_Type {
   TokenType_close_brace,
 
   TokenType_comma,
+  TokenType_semicolon,
 
   TokenType_atom,
   TokenType_numeric_literal,
@@ -89,6 +90,7 @@ const char *token_type_get_string(Token_Type type) {
     Case(open_brace);
     Case(close_brace);
     Case(comma);
+    Case(semicolon);
     Case(atom);
     Case(numeric_literal);
     Case(char_literal);
@@ -135,9 +137,10 @@ Token_Stream tokenize(C_String *program_text, size_t program_text_size) {
 
     const char the_char = (*program_text)[seek_index];
     if (IsWhiteSpace(the_char)) {
-      continue;
+      continue; // we're whitespace insensitive
     }
 
+    // TODO: Remove this when we handle the program text better
     if (the_char == '\0') {
       break;
     }
@@ -168,6 +171,10 @@ Token_Stream tokenize(C_String *program_text, size_t program_text_size) {
     case ']': {
       next_token.start_index = next_token.boundary_index = seek_index;
       next_token.type = TokenType_close_bracket;
+    } break;
+    case ';': {
+      next_token.start_index = next_token.boundary_index = seek_index;
+      next_token.type = TokenType_semicolon;
     } break;
 
     case '\'': {
