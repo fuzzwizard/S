@@ -61,11 +61,8 @@ struct Token {
 
 struct Token_Stream {
   Token *tokens = nullptr;
-  union {
-    size_t write_index = 0;
-    size_t count;
-  };
   size_t capacity = 0;
+  size_t count = 0;
 };
 
 using C_String = char *;
@@ -98,6 +95,7 @@ const char *token_type_get_string(Token_Type type) {
     Case(string_literal);
     Case(COUNT);
   }
+#undef Case
 }
 
 size_t find_boundary_index(char *seek_ptr, size_t start_index) {
@@ -122,12 +120,12 @@ Token_Stream tokenize(C_String *program_text, size_t program_text_size) {
   for (int seek_index = 0; seek_index < program_text_size; seek_index++) {
 
     // resize the buffer if we need it
-    if (stream.write_index >= stream.capacity) {
+    if (stream.count >= stream.capacity) {
       auto old = stream.tokens;
 
       stream.capacity *= 2; // just double it for now
       stream.tokens = new Token[stream.capacity];
-      util::memcpy(stream.tokens, old, stream.write_index * sizeof(Token));
+      util::memcpy(stream.tokens, old, stream.count * sizeof(Token));
 
       delete[] old;
     }
@@ -205,11 +203,11 @@ Token_Stream tokenize(C_String *program_text, size_t program_text_size) {
 void token_stream_free(Token_Stream *stream) {
   delete[] stream->tokens;
   stream->capacity = 0;
-  stream->write_index = 0;
+  stream->count = 0;
 }
 
 void print_all_tokens(Token_Stream *stream) {
-  size_t N = stream->write_index;
+  size_t N = stream->count;
   for (size_t i = 0; i < N; i++) {
     auto token = stream->tokens + i;
     printf("Token { start: %u, end: %u, type: %s }\n", token->start_index,
@@ -234,8 +232,7 @@ int main(int argc, char *argv[]) {
   C_String program_buffer = new char[program_size]; // arbitrary number
   defer(delete[] program_buffer);
 
-  bool no_exit = true;
-  while (no_exit) {
+  for (;;) {
     util::memzero(program_buffer, program_size); // clear the buffer
 
     printf("> ");
