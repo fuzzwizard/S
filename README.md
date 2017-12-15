@@ -1,3 +1,6 @@
 # S
 
-This may become a language.
+[x] parser
+[ ] ast building
+[ ] code gen
+[ ] threading
