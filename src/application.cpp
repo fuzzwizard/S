@@ -1,5 +1,4 @@
-#include "typedefs.h"
-#include "util.h"
+#include "application.h"
 
 // typedef enum allocation_type {
 //   AllocationType_NOOP = 0,
@@ -34,8 +33,7 @@
 //   return 0;
 // }
 
-enum Token_Type
-{
+enum Token_Type {
   TokenType_NONE,
   TokenType_open_paren,
   TokenType_close_paren,
@@ -55,38 +53,34 @@ enum Token_Type
   TokenType_COUNT
 };
 
-struct Token
-{
+struct Token {
   size_t start_index = 0;
   size_t boundary_index = 0;
   Token_Type type = (Token_Type)0;
 };
 
-struct Token_Stream
-{
-  Token *tokens = nullptr;
+struct Token_Stream {
+  Token* tokens = nullptr;
   size_t capacity = 0;
   size_t count = 0;
 };
 
-using C_String = char *;
+using C_String = char*;
 
 #define IsWhiteSpace(Char) ((Char) == ' ' || (Char) == '\n' || (Char) == '\t')
 #define IsNumber(Char) ((Char) >= '0' && (Char) <= '9')
-#define IsAlpha(Char) \
+#define IsAlpha(Char)                                                          \
   (((Char) >= 'a' && (Char) <= 'z') && ((Char) >= 'A' && (Char) <= 'Z'))
-#define IsBoundary(Char)                                               \
-  ((Char) == '{' || (Char) == '}' || (Char) == '(' || (Char) == ')' || \
+#define IsBoundary(Char)                                                       \
+  ((Char) == '{' || (Char) == '}' || (Char) == '(' || (Char) == ')' ||         \
    (Char) == '[' || (Char) == ']')
 
-const char *token_type_get_string(Token_Type type)
-{
-#define Case(Name)       \
-  case TokenType_##Name: \
+const char* token_type_get_string(Token_Type type) {
+#define Case(Name)                                                             \
+  case TokenType_##Name:                                                       \
     return #Name
 
-  switch (type)
-  {
+  switch (type) {
     Case(NONE);
     Case(open_paren);
     Case(close_paren);
@@ -105,15 +99,12 @@ const char *token_type_get_string(Token_Type type)
 #undef Case
 }
 
-size_t find_boundary_index(char *seek_ptr, size_t start_index)
-{
+size_t find_boundary_index(char* seek_ptr, size_t start_index) {
   assert(seek_ptr);
   size_t counter = start_index;
-  for (;;)
-  {
+  for (;;) {
     char it = seek_ptr[counter];
-    if (IsWhiteSpace(it) || IsBoundary(it))
-    {
+    if (IsWhiteSpace(it) || IsBoundary(it)) {
       break;
     }
     it = seek_ptr[counter];
@@ -122,8 +113,7 @@ size_t find_boundary_index(char *seek_ptr, size_t start_index)
   return counter;
 }
 
-Token_Stream tokenize(C_String *program_text, size_t program_text_size)
-{
+Token_Stream tokenize(C_String* program_text, size_t program_text_size) {
   const size_t initial_raw_token_count = program_text_size; // this is arbitrary
   Token_Stream stream;
   stream.tokens =
@@ -131,12 +121,9 @@ Token_Stream tokenize(C_String *program_text, size_t program_text_size)
                                           // consider not doing this dynamically
   stream.capacity = initial_raw_token_count;
 
-  for (int seek_index = 0; seek_index < program_text_size; seek_index++)
-  {
-
+  for (int seek_index = 0; seek_index < program_text_size; seek_index++) {
     // resize the buffer if we need it
-    if (stream.count >= stream.capacity)
-    {
+    if (stream.count >= stream.capacity) {
       auto old = stream.tokens;
 
       stream.capacity *= 2; // just double it for now
@@ -147,94 +134,70 @@ Token_Stream tokenize(C_String *program_text, size_t program_text_size)
     }
 
     const char the_char = (*program_text)[seek_index];
-    if (IsWhiteSpace(the_char))
-    {
+    if (IsWhiteSpace(the_char)) {
       continue; // we're whitespace insensitive
     }
 
     // TODO: Remove this when we handle the program text better
-    if (the_char == '\0')
-    {
+    if (the_char == '\0') {
       break;
     }
     printf("the_char: %c \n", the_char);
 
     Token next_token;
-    switch (the_char)
-    {
-    case '(':
-    {
+    switch (the_char) {
+    case '(': {
       next_token.start_index = next_token.boundary_index = seek_index;
       next_token.type = TokenType_open_paren;
-    }
-    break;
-    case ')':
-    {
+    } break;
+    case ')': {
       next_token.start_index = next_token.boundary_index = seek_index;
       next_token.type = TokenType_close_paren;
-    }
-    break;
-    case '{':
-    {
+    } break;
+    case '{': {
       next_token.start_index = next_token.boundary_index = seek_index;
       next_token.type = TokenType_open_brace;
-    }
-    break;
-    case '}':
-    {
+    } break;
+    case '}': {
       next_token.start_index = next_token.boundary_index = seek_index;
       next_token.type = TokenType_close_brace;
-    }
-    break;
-    case '[':
-    {
+    } break;
+    case '[': {
       next_token.start_index = next_token.boundary_index = seek_index;
       next_token.type = TokenType_open_bracket;
-    }
-    break;
-    case ']':
-    {
+    } break;
+    case ']': {
       next_token.start_index = next_token.boundary_index = seek_index;
       next_token.type = TokenType_close_bracket;
-    }
-    break;
-    case ';':
-    {
+    } break;
+    case ';': {
       next_token.start_index = next_token.boundary_index = seek_index;
       next_token.type = TokenType_semicolon;
-    }
-    break;
+    } break;
 
-    case '\'':
-    {
+    case '\'': {
       next_token.start_index = seek_index;
       next_token.boundary_index = seek_index + 2;
       next_token.type = TokenType_char_literal;
     };
-    case '"':
-    {
+    case '"': {
       next_token.start_index = seek_index;
       next_token.boundary_index =
           find_boundary_index(*program_text, seek_index);
       next_token.type = TokenType_string_literal;
     };
 
-    default:
-    { // now, we're either a numeric literal, or an atom
+    default: { // now, we're either a numeric literal, or an atom
       next_token.start_index = seek_index;
       next_token.boundary_index =
           find_boundary_index(*program_text, seek_index);
 
-      if (IsNumber(the_char))
-      {
+      if (IsNumber(the_char)) {
         next_token.type = TokenType_numeric_literal;
-      }
-      else
-      {
+      } else {
         next_token.type = TokenType_atom;
       }
-    }
-    break;
+    } break;
     }
 
     // token is fully decorated
@@ -245,43 +208,35 @@ Token_Stream tokenize(C_String *program_text, size_t program_text_size)
   return stream;
 };
 
-void token_stream_free(Token_Stream *stream)
-{
+void release(Token_Stream* stream) {
   delete[] stream->tokens;
   stream->capacity = 0;
   stream->count = 0;
 }
 
-void print_all_tokens(Token_Stream *stream)
-{
+void print_all_tokens(Token_Stream* stream) {
   size_t N = stream->count;
-  for (size_t i = 0; i < N; i++)
-  {
+  for (size_t i = 0; i < N; i++) {
     auto token = stream->tokens + i;
     printf("Token { start: %u, end: %u, type: %s }\n", token->start_index,
            token->boundary_index, token_type_get_string(token->type));
   }
 };
 
-// TODO: Stack Allocator
-// TODO: Collections
-// TODO: Strings
-// TODO: File handling
-// TODO: Build an AST!
+// TODO: linear allocator
+// TODO:
 
-// TODO: Typing for these? File system?
-struct Ast_Node
-{
-  Token *token;
+// TODO: Typing for these?
+struct Ast_Node {
+  Token* token;
   // Ast_Node *children;
   // int children_count;
 };
-struct Ast_Statement;
-struct Ast_Expression;
+// struct Ast_Expression ??;
 
 // TODO: Figure out how we structure the AST
 
-Ast_Node *lex(Token_Stream *);
+Ast_Node* lex(Token_Stream*) { return nullptr; };
 
 // struct Interpreter {};
 
@@ -291,35 +246,50 @@ Ast_Node *lex(Token_Stream *);
 
 // void handle_output(Evaluation_Output *);
 
-int main(int argc, char *argv[])
-{
+Buffer read_and_copy_file(char* name) {
+  Buffer b;
+  FILE* file = fopen(name, "r");
+
+  fseek(file, 0, SEEK_END);
+  size_t file_size = ftell(file) + 1;
+  fseek(file, 0, SEEK_SET);
+
+  init(&b, file_size);
+  fread(b.data, file_size, 1, file);
+  b.data[file_size] = 0; // null terminate the buffer
+  fclose(file);
+}
+
+int main(int argc, char* argv[]) {
   size_t program_size = 65536;
   C_String program_buffer = new char[program_size]; // arbitrary number
   defer(delete[] program_buffer);
 
-  for (;;)
-  {
-    util::memzero(program_buffer, program_size); // clear the buffer
-
+  for (;;) {
+    // clear the program buffer and take input
+    util::memzero(program_buffer, program_size);
     printf("> ");
     getline(&program_buffer, &program_size, stdin);
 
-    // read the line
-    if (util::strncmp(program_buffer, "!exit", 5) == 0)
-    {
+    // check if the user exited
+    if (util::strncmp(program_buffer, "!exit", 5) == 0) {
       printf("Exiting.\n");
       break;
     }
 
+    // tokenize
     auto token_stream = tokenize(&program_buffer, program_size);
-    defer(token_stream_free(&token_stream));
+    defer(release(&token_stream));
 
     // debug
     print_all_tokens(&token_stream);
 
+    // lex
     auto ast = lex(&token_stream);
-    // auto output = eval(ast);
-    // handle_output(output);
+    // defer(ast_recursive_free(&ast));
+    // emit code
+
+    // recursively_emit_code(&ast);
   }
 
   return 0;
