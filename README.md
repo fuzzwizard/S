@@ -1,6 +1,6 @@
 # S
 
-[x] parser
+[x] lexer
 [ ] ast building
 [ ] code gen
-[ ] threading
+
