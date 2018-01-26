@@ -10,18 +10,15 @@ struct Stack_Allocator {
   size_t bytes_left = 0;
   size_t capacity = 0;
 
-  u8* marked_current_loc = nullptr;
-  size_t marked_bytes_left = 0;
-
   Stack_Allocator(size_t);
   Stack_Allocator(void*, size_t);
 
   void* alloc(size_t);
   void reset(void);
 
-  void set_mark(void);
-  void reset_to_mark(void);
-  bool is_mark_set(void);
+  typedef u8* frame;
+  frame get_frame();
+  void reset_to_frame(frame);
 };
 
 // NOTE: we dont enforce a min size for the allocator because we assume the user
@@ -53,24 +50,4 @@ void* Stack_Allocator::alloc(size_t amount) {
 void Stack_Allocator::reset(void) {
   current_loc = data_home;
   bytes_left = capacity;
-  marked_bytes_left = 0;
-  marked_current_loc = nullptr;
 };
-
-void Stack_Allocator::set_mark(void) {
-  if (!is_mark_set()) {
-    marked_current_loc = current_loc;
-    marked_bytes_left = bytes_left;
-  }
-};
-
-void Stack_Allocator::reset_to_mark(void) {
-  if (is_mark_set()) {
-    current_loc = marked_current_loc;
-    bytes_left = marked_bytes_left;
-    marked_current_loc = nullptr;
-    marked_bytes_left = 0;
-  }
-};
-
-bool Stack_Allocator::is_mark_set(void) { return current_loc != nullptr; };

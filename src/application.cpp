@@ -236,7 +236,7 @@ struct Ast_Node {
 
 // TODO: Figure out how we structure the AST
 
-Ast_Node* lex(Token_Stream*) { return nullptr; };
+Ast_Node* parse_all_tokens_into_ast_tree(Token_Stream*) { return nullptr; };
 
 // struct Interpreter {};
 
@@ -285,7 +285,7 @@ int main(int argc, char* argv[]) {
     print_all_tokens(&token_stream);
 
     // lex
-    auto ast = lex(&token_stream);
+    auto ast = parse_all_tokens_into_ast_tree(&token_stream);
     // defer(ast_recursive_free(&ast));
     // emit code
 
