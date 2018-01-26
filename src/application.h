@@ -1,5 +1,4 @@
 #pragma once
 
-#include "buffer.h"
-#include "typedefs.h"
+#include "alltypes.h"
 #include "util.h"
