@@ -2,12 +2,20 @@
 
 #include <stdlib.h>
 
-#include "typedefs.h"
+#include "alltypes.h"
 
 namespace util {
 inline void memzero(void *ptr, size_t n) {
   u8 *copy = (u8 *)ptr;
   for (int i = 0; i < n; i++) {
+    copy[i] = 0;
+  }
+};
+
+template <typename T>
+inline void structzero(T* s) {
+  u8* copy = (u8*)s;
+  for (int i = 0; i < sizeof(T); i++) {
     copy[i] = 0;
   }
 };
