@@ -96,17 +96,17 @@ const char* token_type_get_string(Token_Type type) {
 #undef Case
 }
 
-size_t find_boundary_index(Buffer* buf, size_t start_index) {
-  size_t counter = start_index;
+size_t find_boundary_index(Buffer* buf, size_t i) {
+  char it = buf->data[i];
   for (;;) {
-    char it = buf->data[counter];
     if (IsWhiteSpace(it) || IsBoundary(it)) {
+      assert(i < 64);
       break;
     }
-    it = buf->data[counter];
-    counter++;
+    i++;
+    it = buf->data[i];
   }
-  return counter;
+  return i;
 }
 
 Token_Stream tokenize(Buffer program_buffer) {
@@ -119,9 +119,10 @@ Token_Stream tokenize(Buffer program_buffer) {
                                                       // dynamically
   stream.capacity = initial_raw_token_count;
 
+  Token next_token;
   for (int seek_index = 0; seek_index < program_buffer.data_size;
-       seek_index++) {
-    // resize the buffer if we need it
+       seek_index = next_token.boundary_index) {
+    // resize the stream if we need it
     if (stream.count >= stream.capacity) {
       auto old = stream.tokens;
 
@@ -141,50 +142,70 @@ Token_Stream tokenize(Buffer program_buffer) {
     if (the_char == '\0') {
       break;
     }
-    printf("the_char: %c \n", the_char);
 
-    Token next_token;
     switch (the_char) {
     case '(': {
-      next_token.start_index = next_token.boundary_index = seek_index;
+      next_token.start_index = seek_index;
+      next_token.boundary_index = seek_index + 1;
       next_token.type = TokenType_open_paren;
     } break;
     case ')': {
-      next_token.start_index = next_token.boundary_index = seek_index;
+      next_token.start_index = seek_index;
+      next_token.boundary_index = seek_index + 1;
       next_token.type = TokenType_close_paren;
     } break;
     case '{': {
-      next_token.start_index = next_token.boundary_index = seek_index;
+      next_token.start_index = seek_index;
+      next_token.boundary_index = seek_index + 1;
       next_token.type = TokenType_open_brace;
+      // TODO: Record literals
+      unimplemented();
     } break;
     case '}': {
-      next_token.start_index = next_token.boundary_index = seek_index;
+      next_token.start_index = seek_index;
+      next_token.boundary_index = seek_index + 1;
       next_token.type = TokenType_close_brace;
+      // TODO: Record literals
+      unimplemented();
     } break;
     case '[': {
-      next_token.start_index = next_token.boundary_index = seek_index;
+      next_token.start_index = seek_index;
+      next_token.boundary_index = seek_index + 1;
       next_token.type = TokenType_open_bracket;
+      // TODO: Array literals
+      unimplemented();
     } break;
     case ']': {
-      next_token.start_index = next_token.boundary_index = seek_index;
+      next_token.start_index = seek_index;
+      next_token.boundary_index = seek_index + 1;
       next_token.type = TokenType_close_bracket;
+      // TODO: Array literals
+      unimplemented();
     } break;
     case ';': {
-      next_token.start_index = next_token.boundary_index = seek_index;
+      next_token.start_index = seek_index;
+      next_token.boundary_index = seek_index + 1;
       next_token.type = TokenType_semicolon;
+      // Reserved token ';'
+      unreachable();
     } break;
-
     case '\'': {
       next_token.start_index = seek_index;
       next_token.boundary_index = seek_index + 2;
+      assert(program_buffer.data[next_token.boundary_index] == '\'');
       next_token.type = TokenType_char_literal;
-    };
+
+      // TODO: character literals
+      unimplemented();
+    } break;
     case '"': {
       next_token.start_index = seek_index;
       next_token.boundary_index =
           find_boundary_index(&program_buffer, seek_index);
       next_token.type = TokenType_string_literal;
-    };
+      assert(program_buffer.data[seek_index + 2] == '\"');
+      unimplemented();
+    } break;
 
     default: { // now, we're either a numeric literal, or an atom
       next_token.start_index = seek_index;
@@ -196,7 +217,7 @@ Token_Stream tokenize(Buffer program_buffer) {
       } else {
         next_token.type = TokenType_atom;
       }
-    } break;
+    };
     }
 
     // token is fully decorated

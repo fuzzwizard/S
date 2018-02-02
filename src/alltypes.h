@@ -117,5 +117,5 @@ struct Buffer {
 struct String_Builder {
   Buffer current_buffer;
   size_t consumed;
-  Buffer* next_nuffer;
+  String_Builder* next_builder;
 };
