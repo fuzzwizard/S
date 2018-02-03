@@ -13,30 +13,58 @@ void buffer_free(Buffer* buf) {
   util::structzero(buf);
 }
 
-static void sbuilder__maybe_realloc(String_Builder* sb, int amt) {
+#if 0
+static void sb__maybe_realloc(String_Builder* sb, int amt) {
   int amount_needed = sb->current_buffer.occupied + amt;
   if (amount_needed > sb->current_buffer.data_size) {
     unimplemented();
   }
 };
 
-static inline void sbuilder_push_char(String_Builder* sb, char c) {
-  sbuilder__maybe_realloc(sb, 1);
+static inline void sb_push_char(String_Builder* sb, char c) {
+  sb__maybe_realloc(sb, 1);
   sb->current_buffer.data[sb->current_buffer.occupied] = c;
   sb->current_buffer.occupied++;
 }
 
-static inline char sbuilder_peek_char(String_Builder* sb) {
+static inline char sb_peek_head(String_Builder* sb) {
   return sb->current_buffer.data[sb->consumed];
 }
 
-static inline bool sbuilder_eat_whitespace(String_Builder* sb) {
-  if (IsWhiteSpace(sb->current_buffer.data[sb->consumed])) {
-    sb->consumed++;
+static inline void sb_consume(String_Builder* sb) {
+  sb->consumed++;
+  assert(sb->consumed <= sb->occupied);
+}
+
+static inline char sb_consume_w_return(String_Builder* sb) {
+  sb_consume(sb);
+  return sb_peek_head(sb);
+}
+
+static inline bool sb_eat_whitespace(String_Builder* sb) {
+  if (IsWhiteSpace(sb_peek_head(sb))) {
+    sb_consume(sb);
     return true;
   }
   return false;
 }
+
+static inline bool sb_eat_whitespaces(String_Builder* sb) {
+  bool result;
+  while (result = sb_eat_whitespace(sb)) {
+    /* This just keeps eating whitespace, until whitespace is not found */
+  };
+  return result;
+}
+
+static inline char sb_eat_char(String_Builder* sb) {
+  char c = 0;
+  if (IsAlpha(sb_peek_head(sb))) {
+    c = sb_consume_w_return(sb);
+  }
+  return c;
+}
+#endif
 
 enum Token_Type {
   TokenType_invalid,
@@ -70,8 +98,6 @@ struct Token_Stream {
   size_t count = 0;
 };
 
-using C_String = char*;
-
 const char* token_type_get_string(Token_Type type) {
 #define Case(Name)                                                             \
   case TokenType_##Name:                                                       \
@@ -91,11 +117,13 @@ const char* token_type_get_string(Token_Type type) {
     Case(numeric_literal);
     Case(char_literal);
     Case(string_literal);
-    Case(COUNT);
-  }
+  default: { return "(invalid)"; }
 #undef Case
+  };
+  return "(invalid)";
 }
 
+// WARNING: so unsafe!!!! dont use this anywhere else yet!
 size_t find_boundary_index(Buffer* buf, size_t i) {
   char it = buf->data[i];
   for (;;) {
@@ -111,10 +139,10 @@ size_t find_boundary_index(Buffer* buf, size_t i) {
 
 Token_Stream tokenize(Buffer program_buffer) {
   const size_t initial_raw_token_count =
-      program_buffer.data_size; // this is arbitrary
+      program_buffer.data_size; // this is arbitrary, but likely shouldn't be
   Token_Stream stream;
   stream.tokens = new Token[initial_raw_token_count]; // TODO: when we have
-                                                      // Program_Mem, consider
+                                                      // Token_Mem, consider
                                                       // not doing this
                                                       // dynamically
   stream.capacity = initial_raw_token_count;
@@ -192,7 +220,8 @@ Token_Stream tokenize(Buffer program_buffer) {
     case '\'': {
       next_token.start_index = seek_index;
       next_token.boundary_index = seek_index + 2;
-      assert(program_buffer.data[next_token.boundary_index] == '\'');
+      assert(program_buffer.data[next_token.boundary_index] ==
+             '\''); // TODO: Shouldn't just assert but runtime check
       next_token.type = TokenType_char_literal;
 
       // TODO: character literals
@@ -203,7 +232,8 @@ Token_Stream tokenize(Buffer program_buffer) {
       next_token.boundary_index =
           find_boundary_index(&program_buffer, seek_index);
       next_token.type = TokenType_string_literal;
-      assert(program_buffer.data[seek_index + 2] == '\"');
+      assert(program_buffer.data[seek_index + 2] ==
+             '\"'); // TODO: Shouldn't just assert but runtime check
       unimplemented();
     } break;
 
@@ -228,7 +258,7 @@ Token_Stream tokenize(Buffer program_buffer) {
   return stream;
 };
 
-void release(Token_Stream* stream) {
+void token_stream_free(Token_Stream* stream) {
   delete[] stream->tokens;
   stream->capacity = 0;
   stream->count = 0;
@@ -246,25 +276,11 @@ void print_all_tokens(Token_Stream* stream) {
 // TODO: linear allocator
 // TODO:
 
-// TODO: Typing for these?
-struct Ast_Node {
-  Token* token;
-  // Ast_Node *children;
-  // int children_count;
+struct Data_Type {
+  size_t size;
 };
-// struct Ast_Expression ??;
 
-// TODO: Figure out how we structure the AST
-
-Ast_Node* parse_all_tokens_into_ast_tree(Token_Stream*) { return nullptr; };
-
-// struct Interpreter {};
-
-// struct Evaluation_Output {};
-
-// Evaluation_Output *eval(Ast_Node *);
-
-// void handle_output(Evaluation_Output *);
+// Ast_Node* parse_all_tokens_into_ast_tree(Token_Stream*) { return nullptr; };
 
 Buffer read_file_into_buffer(const char* name) {
   Buffer b;
@@ -311,17 +327,18 @@ int main(int argc, char* argv[]) {
     //   break;
     // }
 
-    auto program = read_file_into_buffer("data/test.scheme");
+    auto program_text = read_file_into_buffer("data/test.scheme");
+    defer(buffer_free(&program_text));
 
     // tokenize
-    auto token_stream = tokenize(program);
-    defer(release(&token_stream));
+    auto token_stream = tokenize(program_text);
+    defer(token_stream_free(&token_stream));
 
     // debug
     print_all_tokens(&token_stream);
 
     // lex
-    auto ast = parse_all_tokens_into_ast_tree(&token_stream);
+    // auto ast = parse_all_tokens_into_ast_tree(&token_stream);
     // defer(ast_recursive_free(&ast));
     // emit code
 
