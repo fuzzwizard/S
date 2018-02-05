@@ -127,7 +127,7 @@ const char* token_type_as_string(Token_Type type) {
 size_t find_boundary_index(Buffer* buf, size_t i) {
   char it = buf->data[i];
   for (;;) {
-    if (IsWhiteSpace(it) || IsBoundary(it)) {
+    if (IsWhiteSpace(it) || IsBoundary(it) || !it) {
       assert(i < 64);
       break;
     }
@@ -316,6 +316,7 @@ int main(int argc, char* argv[]) {
   // defer(delete[] program_buffer);
 
   for (;;) {
+    printf("Begin.\n");
     // clear the program buffer and take input
     // util::memzero(program_buffer, program_size);
     // printf("> ");
@@ -327,10 +328,13 @@ int main(int argc, char* argv[]) {
     //   break;
     // }
 
+    printf("Open file.\n");
     auto program_text = read_file_into_buffer("data/test.scheme");
     defer(buffer_free(&program_text));
 
     // tokenize
+    printf("Lex.\n");
+    // TODO: OSX hangs here
     auto token_stream = tokenize(program_text);
     defer(token_stream_free(&token_stream));
 
