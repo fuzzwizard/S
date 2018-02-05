@@ -72,7 +72,7 @@ struct Token_Stream {
 
 using C_String = char*;
 
-const char* token_type_get_string(Token_Type type) {
+const char* token_type_as_string(Token_Type type) {
 #define Case(Name)                                                             \
   case TokenType_##Name:                                                       \
     return #Name
