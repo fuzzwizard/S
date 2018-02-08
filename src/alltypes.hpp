@@ -76,17 +76,29 @@ typedef u8 bool8;
 void __STOP(const char* file, const char* function, int line,
             const char* message1, const char* message2 = 0) {
   printf("#############################################\n");
-  printf("# %s", message1);
+  printf("# %s\n", message1);
   if (message2) {
-    printf("# %s", message2);
+    printf("# %s\n", message2);
   }
-  printf("@ file: %s, func: %s, line: %d", file, function, line);
+  printf("# (%s:%s:%d)\n", file, function, line);
   printf("#############################################\n");
   exit(1);
 }
 
-#ifdef CS_SLOW
+void __WARN(const char* file, const char* function, int line,
+            const char* message) {
+  printf("⚠ WARNING: %s ", message);
+  printf("(file:%s func:%s line:%d)\n", file, function, line);
+}
 
+// we're doing some defensive symbol redefinition here
+#undef assert
+#undef assertm
+#undef unreachable
+#undef unimplemented
+#undef warn
+
+#ifdef CS_SLOW
 #define assert(Cond)                                                           \
   ((Cond)                                                                      \
        ? ((void)0)                                                             \
@@ -98,14 +110,13 @@ void __STOP(const char* file, const char* function, int line,
 #define unreachable(...)                                                       \
   __STOP(__FILE__, __func__, __LINE__, "Reached unreachable code.")
 #define unimplemented(...)                                                     \
-  __STOP(__FILE__, __func__, __LINE__, "Reached unreachable code.")
-
+  __STOP(__FILE__, __func__, __LINE__, "Reached unimlemented code.")
+#define warn(Msg) __WARN(__FILE__, __func__, __LINE__, Msg)
 #else
-
 #define assert(...)
 #define unreachable(...)
-#define unimplemented(...)
-
+#define unimplemented(...) !!!CODE NOT IMPLEMENTED
+#define warn(...)
 #endif
 
 struct Buffer {

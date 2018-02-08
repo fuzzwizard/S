@@ -1,7 +1,7 @@
 #pragma once
 
-#include "alltypes.h"
-#include "platform.h"
+#include "alltypes.hpp"
+#include "platform.hpp"
 
 namespace util {
 inline void memzero(void* ptr, size_t n) {
