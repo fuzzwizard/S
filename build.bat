@@ -1,3 +1,5 @@
+@echo off
+
 set CommonCompilerFlags=-Fe:output/
 set CommonCompilerFlags=-DCS_SLOW=1 -DCS_MSVC=1 -DCS_WINDOWS=1 %CommonCompilerFlags%
 set CommonLinkerFlags=

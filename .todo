@@ -1,8 +1,0 @@
-[x] repl
-[ ] parsing
-[ ] lexing
-[ ] interpretation
-[ ] macros
-[ ] logging/error reporting
-[ ] file handling (simple)
-[ ] file handling (complex)

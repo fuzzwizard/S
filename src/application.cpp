@@ -1,38 +1,72 @@
-#include "application.hpp"
+#include "application.h"
 
-enum Token_Type {
-  TokenType_invalid,
-  TokenType_open_paren,
-  TokenType_close_paren,
-  TokenType_open_bracket,
-  TokenType_close_bracket,
-  TokenType_open_brace,
-  TokenType_close_brace,
+void buffer_init(Buffer* buf, size_t _capacity) {
+  size_t real_cap = Max(16 /* TODO: constant this */, _capacity);
+  buf->data = new u8[real_cap];
+  assert(buf->data);
+  buf->data_size = real_cap;
+  buf->occupied = 0;
+}
 
-  TokenType_comma,
-  TokenType_semicolon,
+void buffer_free(Buffer* buf) {
+  delete[] buf->data;
+  util::structzero(buf);
+}
 
-  TokenType_atom,
-  TokenType_numeric_literal,
-  TokenType_char_literal,
-  TokenType_string_literal,
-
-  TokenType_COUNT
+#if 0
+static void sb__maybe_realloc(String_Builder* sb, int amt) {
+  int amount_needed = sb->buffer.occupied + amt;
+  if (amount_needed > sb->buffer.data_size) {
+    unimplemented();
+  }
 };
 
-struct Token {
-  size_t start_index = 0;
-  size_t boundary_index = 0;
-  Token_Type type = (Token_Type)0;
-};
+static inline void sb_push_char(String_Builder* sb, char c) {
+  sb__maybe_realloc(sb, 1);
+  sb->buffer.data[sb->buffer.occupied] = c;
+  sb->buffer.occupied++;
+}
 
-struct Token_Stream {
-  Token* tokens = nullptr;
-  size_t capacity = 0;
-  size_t count = 0;
-};
+static inline char sb_peek_head(String_Builder* sb) {
+  return sb->buffer.data[sb->consumed];
+}
 
-const char* token_type_as_string(Token_Type type) {
+static inline void sb_consume(String_Builder* sb) {
+  sb->consumed++;
+  assert(sb->consumed <= sb->buffer.occupied);
+}
+
+static inline char sb_consume_w_return(String_Builder* sb) {
+  sb_consume(sb);
+  return sb_peek_head(sb);
+}
+
+static inline bool sb_eat_whitespace(String_Builder* sb) {
+  if (IsWhiteSpace(sb_peek_head(sb))) {
+    sb_consume(sb);
+    return true;
+  }
+  return false;
+}
+
+static inline bool sb_eat_whitespaces(String_Builder* sb) {
+  bool result;
+  while (result = sb_eat_whitespace(sb)) {
+    /* This just keeps eating whitespace, until whitespace is not found */
+  };
+  return result;
+}
+
+static inline char sb_eat_char(String_Builder* sb) {
+  char c = 0;
+  if (IsAlpha(sb_peek_head(sb))) {
+    c = sb_consume_w_return(sb);
+  }
+  return c;
+}
+#endif
+
+const char* token_type_get_string(Token_Type type) {
 #define Case(Name)                                                             \
   case TokenType_##Name:                                                       \
     return #Name
@@ -72,13 +106,13 @@ size_t find_boundary_index(Buffer* buf, size_t i) {
 }
 
 Token_Stream tokenize(Buffer program_buffer) {
-  const size_t initial_raw_token_count =
-      program_buffer.data_size; // this is arbitrary, but likely shouldn't be
+  // likely leaves some empty space at the end, but not much.
+  const size_t initial_raw_token_count = program_buffer.data_size;
   Token_Stream stream;
   stream.tokens = new Token[initial_raw_token_count]; // TODO: when we have
-                                                      // Token_Mem, consider
-                                                      // not doing this
+                                                      // Token_Mem, dont do this
                                                       // dynamically
+  assert(stream.tokens);
   stream.capacity = initial_raw_token_count;
 
   Token next_token;
@@ -90,6 +124,7 @@ Token_Stream tokenize(Buffer program_buffer) {
 
       stream.capacity *= 2; // just double it for now
       stream.tokens = new Token[stream.capacity];
+      assert(stream.tokens);
       util::memcpy(stream.tokens, old, stream.count * sizeof(Token));
 
       delete[] old;
@@ -98,11 +133,6 @@ Token_Stream tokenize(Buffer program_buffer) {
     const char the_char = program_buffer.data[seek_index];
     if (IsWhiteSpace(the_char)) {
       continue; // we're whitespace insensitive
-    }
-
-    // TODO: Remove this when we handle the program text better
-    if (the_char == '\0') {
-      break;
     }
 
     switch (the_char) {
@@ -275,12 +305,7 @@ int main(int argc, char* argv[]) {
     // debug
     print_all_tokens(&token_stream);
 
-    // lex
     // auto ast = parse_all_tokens_into_ast_tree(&token_stream);
-    // defer(ast_recursive_free(&ast));
-    // emit code
-
-    // recursively_emit_code(&ast);
     break;
   }
 

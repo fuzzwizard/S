@@ -1,0 +1,27 @@
+[x] repl
+[x] lexing
+[ ] parsing
+[ ] interpretation
+[ ] ffi
+[ ] cleaned up io
+[ ] logging/error reporting
+[ ] file handling (simple)
+[ ] file handling (complex)
+
+Lifetimes:
+    Files:
+        - linear, growing allocator, static lifetime (for now)
+    Tokens:
+        - linear, growing allocator, likely dropped after parsing
+    Ast:
+        - linear, growing allocator, static lifetime
+        - macros are registered
+        - macro expressions are flagged
+    Ast-Macro Processing:
+        - process from the bottom
+        - expand macros
+        - register any macros in the result
+        - flag any macro expressions in the result
+    Interp:
+        - runtime memory is a whole dang consideration.
+            - pluggable allocators via c-interop

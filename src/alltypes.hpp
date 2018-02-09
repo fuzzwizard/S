@@ -73,8 +73,8 @@ typedef u8 bool8;
   ((Char) == '{' || (Char) == '}' || (Char) == '(' || (Char) == ')' ||         \
    (Char) == '[' || (Char) == ']')
 
-void __STOP(const char* file, const char* function, int line,
-            const char* message1, const char* message2 = 0) {
+void __stop_everything(const char* file, const char* function, int line,
+                       const char* message1, const char* message2 = 0) {
   printf("#############################################\n");
   printf("# %s\n", message1);
   if (message2) {
@@ -85,8 +85,8 @@ void __STOP(const char* file, const char* function, int line,
   exit(1);
 }
 
-void __WARN(const char* file, const char* function, int line,
-            const char* message) {
+void __print_warning(const char* file, const char* function, int line,
+                     const char* message) {
   printf("⚠ WARNING: %s ", message);
   printf("(file:%s func:%s line:%d)\n", file, function, line);
 }
@@ -100,18 +100,18 @@ void __WARN(const char* file, const char* function, int line,
 
 #ifdef CS_SLOW
 #define assert(Cond)                                                           \
-  ((Cond)                                                                      \
-       ? ((void)0)                                                             \
-       : (__STOP(__FILE__, __func__, __LINE__, "Assertation failed: " #Cond)))
-#define assertm(Cond, Msg)                                                     \
   ((Cond) ? ((void)0)                                                          \
-          : (__STOP(__FILE__, __func__, __LINE__,                              \
-                    "Assertation failed: " #Cond, Msg)))
+          : (__stop_everything(__FILE__, __func__, __LINE__,                   \
+                               "Assertation failed: " #Cond)))
+#define assert_m(Cond, Msg)                                                    \
+  ((Cond) ? ((void)0)                                                          \
+          : (__stop_everything(__FILE__, __func__, __LINE__,                   \
+                               "Assertation failed: " #Cond, Msg)))
 #define unreachable(...)                                                       \
-  __STOP(__FILE__, __func__, __LINE__, "Reached unreachable code.")
+  __stop_everything(__FILE__, __func__, __LINE__, "Reached unreachable code.")
 #define unimplemented(...)                                                     \
-  __STOP(__FILE__, __func__, __LINE__, "Reached unimlemented code.")
-#define warn(Msg) __WARN(__FILE__, __func__, __LINE__, Msg)
+  __stop_everything(__FILE__, __func__, __LINE__, "Reached unimlemented code.")
+#define warn(Msg) __print_warning(__FILE__, __func__, __LINE__, Msg)
 #else
 #define assert(...)
 #define unreachable(...)
@@ -125,8 +125,35 @@ struct Buffer {
   size_t occupied;
 };
 
-struct String_Builder {
-  Buffer current_buffer;
-  size_t consumed;
-  String_Builder* next_builder;
+enum Token_Type {
+  TokenType_invalid,
+
+  TokenType_atom,
+  TokenType_numeric_literal,
+  TokenType_char_literal,
+  TokenType_string_literal,
+
+  TokenType_open_paren,
+  TokenType_close_paren,
+  TokenType_open_bracket,
+  TokenType_close_bracket,
+  TokenType_open_brace,
+  TokenType_close_brace,
+
+  TokenType_comma,
+  TokenType_semicolon,
+
+  TokenType_COUNT
+};
+
+struct Token {
+  size_t start_index = 0;
+  size_t boundary_index = 0;
+  Token_Type type = TokenType_invalid;
+};
+
+struct Token_Stream {
+  Token* tokens = nullptr;
+  size_t capacity = 0;
+  size_t count = 0;
 };
