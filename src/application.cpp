@@ -23,7 +23,7 @@ enum Token_Type {
 struct Token {
   size_t start_index = 0;
   size_t boundary_index = 0;
-  Token_Type type = (Token_Type)0;
+  Token_Type type = TokenType_invalid;
 };
 
 struct Token_Stream {
@@ -57,17 +57,19 @@ const char* token_type_as_string(Token_Type type) {
   return "(invalid)";
 }
 
+static inline u8* buffer_get_end(Buffer* b) { return b->data + b->occupied; }
+
 // WARNING: so unsafe!!!! dont use this anywhere else yet!
 size_t find_boundary_index(Buffer* buf, size_t i) {
-  char it = buf->data[i];
-  for (;;) {
-    if (IsWhiteSpace(it) || IsBoundary(it) || !it) {
+  u8* it = buf->data + i;
+  do {
+    if (IsWhiteSpace(*it) || IsBoundary(*it)) {
       assert(i < 64);
       break;
     }
     i++;
-    it = buf->data[i];
-  }
+    it++;
+  } while (it != buffer_get_end(buf));
   return i;
 }
 

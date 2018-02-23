@@ -91,13 +91,6 @@ void __WARN(const char* file, const char* function, int line,
   printf("(file:%s func:%s line:%d)\n", file, function, line);
 }
 
-// we're doing some defensive symbol redefinition here
-#undef assert
-#undef assertm
-#undef unreachable
-#undef unimplemented
-#undef warn
-
 #ifdef CS_SLOW
 #define assert(Cond)                                                           \
   ((Cond)                                                                      \
@@ -115,7 +108,7 @@ void __WARN(const char* file, const char* function, int line,
 #else
 #define assert(...)
 #define unreachable(...)
-#define unimplemented(...) !!!CODE NOT IMPLEMENTED
+#define unimplemented(...) NOT IMPLEMENTED !!!!!!
 #define warn(...)
 #endif
 
