@@ -7,6 +7,7 @@ const char* token_type_get_string(Token_Type type) {
 
   switch (type) {
     Case(invalid);
+    Case(stream_terminator);
     Case(open_paren);
     Case(close_paren);
     Case(open_bracket);
@@ -16,169 +17,159 @@ const char* token_type_get_string(Token_Type type) {
     Case(comma);
     Case(semicolon);
     Case(atom);
+    Case(whitespace);
     Case(numeric_literal);
     Case(char_literal);
     Case(string_literal);
-  default: { return "(invalid)"; }
+    Case(comment);
+  default: { unreachable(); }
 #undef Case
   };
   return "(invalid)";
 }
 
-static inline u8* buffer_get_end(Buffer* b) { return b->data + b->occupied; }
+#define yell(m) printf("%s:%s\n", __func__, m)
 
-// WARNING: so unsafe!!!! dont use this anywhere else yet!
-size_t find_boundary_index(Buffer* buf, size_t i) {
-  u8* it = buf->data + i;
-  do {
-    if (IsWhiteSpace(*it) || IsBoundary(*it)) {
+Tokenizer* tokenize(Buffer program_buffer) {
+  // Helpers
+  auto find_boundary_index = [program_buffer](size_t start_index) {
+    assert(start_index <= program_buffer.occupied);
+    yell("find_boundary_index");
+    size_t i = 0;
+    u8* it = program_buffer.data + start_index;
+    do {
       assert(i < 64);
-      break;
-    }
-    i++;
-    it++;
-  } while (it != buffer_get_end(buf));
-  return i;
-}
+      assert(start_index + i <= program_buffer.occupied);
+      if (IsWhiteSpace(*it) || IsBoundary(*it)) {
+        return start_index + i;
+      }
+      i++;
+      it++;
+    } while (it != (program_buffer.data + program_buffer.occupied));
+    return start_index + i;
+  };
 
-Token_Stream tokenize(Buffer program_buffer) {
-  // likely leaves some empty space at the end, but not much.
+  auto find_next_newline = [program_buffer](size_t start_index) {
+    assert(start_index <= program_buffer.occupied);
+    yell("find_next_newline");
+    size_t i = 0;
+    u8* it = program_buffer.data + start_index;
+    do {
+      assert(i < 64);
+      assert(start_index + i <= program_buffer.occupied);
+      if (*it == '\n') {
+        return start_index + i;
+      }
+      i++;
+      it++;
+    } while (it != (program_buffer.data + program_buffer.occupied));
+    return start_index + i;
+  };
+
+  Tokenizer* t = platform_alloc<Tokenizer>(1);
   const size_t initial_raw_token_count = program_buffer.data_size;
-  Token_Stream stream;
-  stream.tokens = new Token[initial_raw_token_count]; // TODO: when we have
+  auto push_token = [t](size_t start, size_t end, Token_Type type) {
+    yell("push_token");
+
+    auto it = t->tokens + t->count;
+    it->start_index = start;
+    it->boundary_index = end;
+    it->type = type;
+    t->count++;
+  };
+  t->tokens =
+      platform_alloc<Token>(initial_raw_token_count); // TODO: when we have
                                                       // Token_Mem, dont do this
                                                       // dynamically
-  assert(stream.tokens);
-  stream.capacity = initial_raw_token_count;
+  t->capacity = initial_raw_token_count;
+  t->count = 0;
 
-  Token next_token;
   for (int seek_index = 0; seek_index < program_buffer.data_size;
-       seek_index = next_token.boundary_index) {
+       seek_index = t->current_token.boundary_index) {
     // resize the stream if we need it
-    if (stream.count >= stream.capacity) {
-      auto old = stream.tokens;
-
-      stream.capacity *= 2; // just double it for now
-      stream.tokens = new Token[stream.capacity];
-      assert(stream.tokens);
-      util::memcpy(stream.tokens, old, stream.count * sizeof(Token));
-
-      delete[] old;
+    if (t->count >= t->capacity) {
+      t->capacity *= 2; // just double it for now
+      t->tokens = platform_realloc<Token>(t->tokens, t->capacity);
     }
 
-    const char the_char = program_buffer.data[seek_index];
-    if (IsWhiteSpace(the_char)) {
-      continue; // we're whitespace insensitive
+    t->current_char = program_buffer.data[seek_index];
+    if (IsWhiteSpace(t->current_char)) {
+      push_token(seek_index, seek_index + 1, TokenType_whitespace);
+      continue;
     }
 
-    switch (the_char) {
+    switch (t->current_char) {
     case '(': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index = seek_index + 1;
-      next_token.type = TokenType_open_paren;
+      push_token(seek_index, seek_index + 1, TokenType_open_paren);
     } break;
     case ')': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index = seek_index + 1;
-      next_token.type = TokenType_close_paren;
+      push_token(seek_index, seek_index + 1, TokenType_close_paren);
     } break;
     case '{': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index = seek_index + 1;
-      next_token.type = TokenType_open_brace;
-      // TODO: Record literals
+      push_token(seek_index, seek_index + 1, TokenType_open_brace);
       unimplemented();
     } break;
     case '}': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index = seek_index + 1;
-      next_token.type = TokenType_close_brace;
-      // TODO: Record literals
+      push_token(seek_index, seek_index + 1, TokenType_close_brace);
       unimplemented();
     } break;
     case '[': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index = seek_index + 1;
-      next_token.type = TokenType_open_bracket;
-      // TODO: Array literals
+      push_token(seek_index, seek_index + 1, TokenType_open_bracket);
       unimplemented();
     } break;
     case ']': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index = seek_index + 1;
-      next_token.type = TokenType_close_bracket;
-      // TODO: Array literals
+      push_token(seek_index, seek_index + 1, TokenType_open_bracket);
       unimplemented();
     } break;
     case ';': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index = seek_index + 1;
-      next_token.type = TokenType_semicolon;
-      // Reserved token ';'
-      unreachable();
-    } break;
-    case '\'': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index = seek_index + 2;
-      assert(program_buffer.data[next_token.boundary_index] ==
-             '\''); // TODO: Shouldn't just assert but runtime check
-      next_token.type = TokenType_char_literal;
-
-      // TODO: character literals
+      push_token(seek_index, seek_index + 1, TokenType_semicolon);
       unimplemented();
     } break;
-    case '"': {
-      next_token.start_index = seek_index;
-      next_token.boundary_index =
-          find_boundary_index(&program_buffer, seek_index);
-      next_token.type = TokenType_string_literal;
-      assert(program_buffer.data[seek_index + 2] ==
-             '\"'); // TODO: Shouldn't just assert but runtime check
+    case '\'': { // Char literal
+      push_token(seek_index, seek_index + 2, TokenType_char_literal);
       unimplemented();
     } break;
+    case '"': { // String literal
+      push_token(seek_index, find_boundary_index(seek_index),
+                 TokenType_string_literal);
+      unimplemented();
+    } break;
+    case '#': { // Line comment
+      push_token(seek_index, find_next_newline(seek_index), TokenType_comment);
+    } break;
 
-    default: { // now, we're either a numeric literal, or an atom
-      next_token.start_index = seek_index;
-      next_token.boundary_index =
-          find_boundary_index(&program_buffer, seek_index);
-
-      if (IsNumber(the_char)) {
-        next_token.type = TokenType_numeric_literal;
-      } else {
-        next_token.type = TokenType_atom;
-      }
+    default: { // numeric literal/atom
+      size_t end_index = find_boundary_index(seek_index);
+      auto type = IsNumber(t->current_char) ? TokenType_numeric_literal
+                                            : TokenType_atom;
+      push_token(seek_index, end_index, type);
     };
     }
 
-    // token is fully decorated
-    stream.tokens[stream.count] = next_token;
-    stream.count++;
+    // token is fully decorated, advance the stream
   }
 
-  return stream;
+  // terminate the stream
+  push_token(t->current_token.boundary_index, 0, TokenType_stream_terminator);
+  return t;
 };
 
-void token_stream_free(Token_Stream* stream) {
-  delete[] stream->tokens;
-  stream->capacity = 0;
-  stream->count = 0;
+void tokenizer_free(Tokenizer* t) {
+  platform_free(t->tokens);
+  t->capacity = 0;
+  t->count = 0;
 }
 
-void print_all_tokens(Token_Stream* stream) {
-  size_t N = stream->count;
+void print_all_tokens(Tokenizer* t) {
+  size_t N = t->count;
   for (size_t i = 0; i < N; i++) {
-    auto token = stream->tokens + i;
+    auto token = t->tokens + i;
     printf("Token { start: %ld, end: %ld, type: %s }\n", token->start_index,
            token->boundary_index, token_type_get_string(token->type));
   }
 };
 
 // TODO: linear allocator
-// TODO:
-
-struct Data_Type {
-  size_t size;
-};
 
 // Ast_Node* parse_all_tokens_into_ast_tree(Token_Stream*) { return nullptr; };
 
@@ -233,13 +224,12 @@ int main(int argc, char* argv[]) {
     defer(buffer_free(&program_text));
 
     // tokenize
-    printf("Lex.\n");
-    // TODO: OSX hangs here
-    auto token_stream = tokenize(program_text);
-    defer(token_stream_free(&token_stream));
+    // printf("Lex.\n");
+    auto t = tokenize(program_text);
+    defer(tokenizer_free(t));
 
     // debug
-    print_all_tokens(&token_stream);
+    print_all_tokens(t);
 
     // auto ast = parse_all_tokens_into_ast_tree(&token_stream);
     break;

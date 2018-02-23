@@ -119,6 +119,7 @@ struct Buffer {
 };
 
 enum Token_Type {
+  TokenType_stream_terminator,
   TokenType_invalid,
 
   TokenType_atom,
@@ -135,6 +136,8 @@ enum Token_Type {
 
   TokenType_comma,
   TokenType_semicolon,
+  TokenType_whitespace,
+  TokenType_comment,
 
   TokenType_COUNT
 };
@@ -145,8 +148,10 @@ struct Token {
   Token_Type type = TokenType_invalid;
 };
 
-struct Token_Stream {
-  Token* tokens = nullptr;
-  size_t capacity = 0;
-  size_t count = 0;
+struct Tokenizer {
+  Token* tokens;
+  size_t capacity;
+  size_t count;
+  char current_char;
+  Token current_token;
 };
