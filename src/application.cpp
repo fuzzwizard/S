@@ -1,38 +1,6 @@
 #include "application.hpp"
 
-enum Token_Type {
-  TokenType_invalid,
-  TokenType_open_paren,
-  TokenType_close_paren,
-  TokenType_open_bracket,
-  TokenType_close_bracket,
-  TokenType_open_brace,
-  TokenType_close_brace,
-
-  TokenType_comma,
-  TokenType_semicolon,
-
-  TokenType_atom,
-  TokenType_numeric_literal,
-  TokenType_char_literal,
-  TokenType_string_literal,
-
-  TokenType_COUNT
-};
-
-struct Token {
-  size_t start_index = 0;
-  size_t boundary_index = 0;
-  Token_Type type = TokenType_invalid;
-};
-
-struct Token_Stream {
-  Token* tokens = nullptr;
-  size_t capacity = 0;
-  size_t count = 0;
-};
-
-const char* token_type_as_string(Token_Type type) {
+const char* token_type_get_string(Token_Type type) {
 #define Case(Name)                                                             \
   case TokenType_##Name:                                                       \
     return #Name
@@ -74,13 +42,13 @@ size_t find_boundary_index(Buffer* buf, size_t i) {
 }
 
 Token_Stream tokenize(Buffer program_buffer) {
-  const size_t initial_raw_token_count =
-      program_buffer.data_size; // this is arbitrary, but likely shouldn't be
+  // likely leaves some empty space at the end, but not much.
+  const size_t initial_raw_token_count = program_buffer.data_size;
   Token_Stream stream;
   stream.tokens = new Token[initial_raw_token_count]; // TODO: when we have
-                                                      // Token_Mem, consider
-                                                      // not doing this
+                                                      // Token_Mem, dont do this
                                                       // dynamically
+  assert(stream.tokens);
   stream.capacity = initial_raw_token_count;
 
   Token next_token;
@@ -92,6 +60,7 @@ Token_Stream tokenize(Buffer program_buffer) {
 
       stream.capacity *= 2; // just double it for now
       stream.tokens = new Token[stream.capacity];
+      assert(stream.tokens);
       util::memcpy(stream.tokens, old, stream.count * sizeof(Token));
 
       delete[] old;
@@ -100,11 +69,6 @@ Token_Stream tokenize(Buffer program_buffer) {
     const char the_char = program_buffer.data[seek_index];
     if (IsWhiteSpace(the_char)) {
       continue; // we're whitespace insensitive
-    }
-
-    // TODO: Remove this when we handle the program text better
-    if (the_char == '\0') {
-      break;
     }
 
     switch (the_char) {
@@ -205,7 +169,7 @@ void print_all_tokens(Token_Stream* stream) {
   for (size_t i = 0; i < N; i++) {
     auto token = stream->tokens + i;
     printf("Token { start: %ld, end: %ld, type: %s }\n", token->start_index,
-           token->boundary_index, token_type_as_string(token->type));
+           token->boundary_index, token_type_get_string(token->type));
   }
 };
 
@@ -277,12 +241,7 @@ int main(int argc, char* argv[]) {
     // debug
     print_all_tokens(&token_stream);
 
-    // lex
     // auto ast = parse_all_tokens_into_ast_tree(&token_stream);
-    // defer(ast_recursive_free(&ast));
-    // emit code
-
-    // recursively_emit_code(&ast);
     break;
   }
 

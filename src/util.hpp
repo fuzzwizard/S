@@ -41,7 +41,7 @@ inline void memcpy(void* dest, const char* source, size_t n) {
   }
 }
 
-inline void memmove(void* dest, void* source, size_t n) {
+void memmove(void* dest, void* source, size_t n) {
   u8* copy_source = (u8*)source;
   u8* copy_dest = (u8*)dest;
 
@@ -60,7 +60,7 @@ inline void memmove(void* dest, void* source, size_t n) {
   }
 };
 
-inline size_t strlen(char* target) {
+size_t strlen(char* target) {
   size_t result = 0;
   while (target[result] != '\0') {
     result++;
@@ -68,16 +68,18 @@ inline size_t strlen(char* target) {
   return result;
 }
 
-int strncmp(const char* a, const char* b, size_t n) {
-  while (n && *a && (*a == *b)) {
-    ++a;
-    ++b;
-    --n;
+int strncmp(const char* stringa, const char* stringb, size_t decrementor) {
+  while (decrementor && *stringa && (*stringa == *stringb)) {
+    ++stringa;
+    ++stringb;
+    --decrementor;
   }
-  if (n == 0) {
+  if (decrementor == 0) {
     return 0;
   } else {
-    return (*((u8*)a) - *((u8*)b));
+    // returns the offset between the characters found at the end of either
+    // string. useful for sorts!
+    return (*((u8*)stringa) - *((u8*)stringb));
   }
 }
 }; // namespace util

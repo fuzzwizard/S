@@ -1,4 +1,5 @@
 output/*
+.vs/
 .vscode/
 *.obj
 *.lib
