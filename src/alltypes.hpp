@@ -147,11 +147,3 @@ struct Token {
   size_t boundary_index = 0;
   Token_Type type = TokenType_invalid;
 };
-
-struct Tokenizer {
-  Token* tokens;
-  size_t capacity;
-  size_t count;
-  char current_char;
-  Token current_token;
-};

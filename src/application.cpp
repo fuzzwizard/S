@@ -30,137 +30,66 @@ const char* token_type_get_string(Token_Type type) {
 
 #define yell(m) printf("%s:%s\n", __func__, m)
 
-Tokenizer* tokenize(Buffer program_buffer) {
-  // Helpers
-  auto find_boundary_index = [program_buffer](size_t start_index) {
-    assert(start_index <= program_buffer.occupied);
-    yell("find_boundary_index");
-    size_t i = 0;
-    u8* it = program_buffer.data + start_index;
-    do {
-      assert(i < 64);
-      assert(start_index + i <= program_buffer.occupied);
-      if (IsWhiteSpace(*it) || IsBoundary(*it)) {
-        return start_index + i;
-      }
-      i++;
-      it++;
-    } while (it != (program_buffer.data + program_buffer.occupied));
-    return start_index + i;
-  };
-
-  auto find_next_newline = [program_buffer](size_t start_index) {
-    assert(start_index <= program_buffer.occupied);
-    yell("find_next_newline");
-    size_t i = 0;
-    u8* it = program_buffer.data + start_index;
-    do {
-      assert(i < 64);
-      assert(start_index + i <= program_buffer.occupied);
-      if (*it == '\n') {
-        return start_index + i;
-      }
-      i++;
-      it++;
-    } while (it != (program_buffer.data + program_buffer.occupied));
-    return start_index + i;
-  };
-
-  Tokenizer* t = platform_alloc<Tokenizer>(1);
-  const size_t initial_raw_token_count = program_buffer.data_size;
-  auto push_token = [t](size_t start, size_t end, Token_Type type) {
-    yell("push_token");
-
-    auto it = t->tokens + t->count;
-    it->start_index = start;
-    it->boundary_index = end;
-    it->type = type;
-    t->count++;
-  };
-  t->tokens =
-      platform_alloc<Token>(initial_raw_token_count); // TODO: when we have
-                                                      // Token_Mem, dont do this
-                                                      // dynamically
-  t->capacity = initial_raw_token_count;
-  t->count = 0;
-
-  for (int seek_index = 0; seek_index < program_buffer.data_size;
-       seek_index = t->current_token.boundary_index) {
-    // resize the stream if we need it
-    if (t->count >= t->capacity) {
-      t->capacity *= 2; // just double it for now
-      t->tokens = platform_realloc<Token>(t->tokens, t->capacity);
-    }
-
-    t->current_char = program_buffer.data[seek_index];
-    if (IsWhiteSpace(t->current_char)) {
-      push_token(seek_index, seek_index + 1, TokenType_whitespace);
-      continue;
-    }
-
-    switch (t->current_char) {
-    case '(': {
-      push_token(seek_index, seek_index + 1, TokenType_open_paren);
-    } break;
-    case ')': {
-      push_token(seek_index, seek_index + 1, TokenType_close_paren);
-    } break;
-    case '{': {
-      push_token(seek_index, seek_index + 1, TokenType_open_brace);
-      unimplemented();
-    } break;
-    case '}': {
-      push_token(seek_index, seek_index + 1, TokenType_close_brace);
-      unimplemented();
-    } break;
-    case '[': {
-      push_token(seek_index, seek_index + 1, TokenType_open_bracket);
-      unimplemented();
-    } break;
-    case ']': {
-      push_token(seek_index, seek_index + 1, TokenType_open_bracket);
-      unimplemented();
-    } break;
-    case ';': {
-      push_token(seek_index, seek_index + 1, TokenType_semicolon);
-      unimplemented();
-    } break;
-    case '\'': { // Char literal
-      push_token(seek_index, seek_index + 2, TokenType_char_literal);
-      unimplemented();
-    } break;
-    case '"': { // String literal
-      push_token(seek_index, find_boundary_index(seek_index),
-                 TokenType_string_literal);
-      unimplemented();
-    } break;
-    case '#': { // Line comment
-      push_token(seek_index, find_next_newline(seek_index), TokenType_comment);
-    } break;
-
-    default: { // numeric literal/atom
-      size_t end_index = find_boundary_index(seek_index);
-      auto type = IsNumber(t->current_char) ? TokenType_numeric_literal
-                                            : TokenType_atom;
-      push_token(seek_index, end_index, type);
-    };
-    }
-
-    // token is fully decorated, advance the stream
-  }
-
-  // terminate the stream
-  push_token(t->current_token.boundary_index, 0, TokenType_stream_terminator);
-  return t;
+struct Token_Stream {
+  Token* tokens;
+  size_t capacity;
+  size_t count;
+  char current_char;
+  Token current_token;
 };
 
-void tokenizer_free(Tokenizer* t) {
+void push_token(Token_Stream* t, Token* token) {
+  t->tokens[t->count] = *token;
+  t->count++;
+}
+
+void push_token(Token_Stream* t, size_t start, size_t offset, Token_Type type) {
+  t->tokens[t->count] = {start, start + offset, type};
+  t->count++;
+}
+
+Token_Stream* tokenize_buffer(Buffer b) {
+  auto t = platform_alloc<Token_Stream>(1);
+  auto N = b.occupied;
+
+  u8 current_char;
+  for (int seek_index = 0; seek_index < N;) {
+    current_char = b.data[seek_index];
+
+    switch (current_char) {
+    case '(': {
+      push_token(t, seek_index, seek_index + 1, TokenType_open_paren);
+      seek_index++;
+    } break;
+    case ')': {
+      push_token(t, seek_index, seek_index + 1, TokenType_close_paren);
+      seek_index++;
+    } break;
+    case '#': {
+      size_t start_index = seek_index;
+      while (current_char != '\n') {
+        assert(current_char);
+        current_char = b.data[seek_index];
+        seek_index++;
+      }
+      push_token(t, start_index, seek_index, TokenType_comment);
+    } break;
+
+    default: {}
+      continue;
+    }
+  }
+
+  return t;
+}
+
+void token_stream_free(Token_Stream* t) {
   platform_free(t->tokens);
   t->capacity = 0;
   t->count = 0;
 }
 
-void print_all_tokens(Tokenizer* t) {
+void print_all_tokens(Token_Stream* t) {
   size_t N = t->count;
   for (size_t i = 0; i < N; i++) {
     auto token = t->tokens + i;
@@ -225,8 +154,8 @@ int main(int argc, char* argv[]) {
 
     // tokenize
     // printf("Lex.\n");
-    auto t = tokenize(program_text);
-    defer(tokenizer_free(t));
+    auto t = tokenize_buffer(program_text);
+    defer(token_stream_free(t));
 
     // debug
     print_all_tokens(t);
