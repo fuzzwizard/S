@@ -1,8 +1,6 @@
 #include "application.hpp"
 
-#define yell(...) printf("!!! @%s %d (%s)", __FILE__, __LINE__, __func__)
-
-const char* token_type_get_string(Token_Type type) {
+const char* token_type_as_string(Token_Type type) {
 #define Case(Name)                                                             \
   case TokenType_##Name:                                                       \
     return #Name
@@ -106,9 +104,8 @@ Token_Chunk* tokenize_buffer(Buffer b) {
     } break;
     }
   }
-}
 
-return result_chunk;
+  return result_chunk;
 }
 
 void free_token_chunk(Token_Chunk* t) { platform_free(t); }
@@ -118,7 +115,7 @@ void print_token_chunk(Token_Chunk* t) {
   for (size_t i = 0; i < N; i++) {
     auto token = t->tokens + i;
     printf("Token { start: %ld, end: %ld, type: %s }\n", token->start_index,
-           token->boundary_index, token_type_get_string(token->type));
+           token->boundary_index, token_type_as_string(token->type));
   }
 };
 
