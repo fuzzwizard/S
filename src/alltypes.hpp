@@ -72,6 +72,7 @@ typedef u8 bool8;
 #define IsBoundary(Char)                                                       \
   ((Char) == '{' || (Char) == '}' || (Char) == '(' || (Char) == ')' ||         \
    (Char) == '[' || (Char) == ']')
+#define IsAlphaNum(Char) (IsAlpha(Char) && IsNumber(Char))
 
 void __stop_everything(const char* file, const char* function, int line,
                        const char* message1, const char* message2 = 0) {

@@ -1,5 +1,7 @@
 #include "application.hpp"
 
+#define yell(...) printf("!!! @%s %d (%s)", __FILE__, __LINE__, __func__)
+
 const char* token_type_get_string(Token_Type type) {
 #define Case(Name)                                                             \
   case TokenType_##Name:                                                       \
@@ -28,68 +30,90 @@ const char* token_type_get_string(Token_Type type) {
   return "(invalid)";
 }
 
-#define yell(m) printf("%s:%s\n", __func__, m)
-
-struct Token_Stream {
+struct Token_Chunk {
   Token* tokens;
   size_t capacity;
   size_t count;
-  char current_char;
-  Token current_token;
 };
 
-void push_token(Token_Stream* t, Token* token) {
+static inline Token_Chunk* new_token_chunk(size_t cap) {
+  union {
+    Token_Chunk* as_chunk;
+    u8* as_bytes;
+  };
+
+  const size_t chunk_size = sizeof(Token_Chunk) + (sizeof(Token) * cap);
+  as_bytes = platform_alloc<u8>(chunk_size);
+  assert(as_bytes);
+
+  as_chunk->count = 0;
+  as_chunk->capacity = cap;
+  as_chunk->tokens = (Token*)(as_bytes + sizeof(Token_Chunk));
+  return as_chunk;
+};
+
+static inline void push_token(Token_Chunk* t, Token* token) {
   t->tokens[t->count] = *token;
   t->count++;
 }
 
-void push_token(Token_Stream* t, size_t start, size_t offset, Token_Type type) {
-  t->tokens[t->count] = {start, start + offset, type};
+static inline void push_token(Token_Chunk* t, size_t start, size_t end,
+                              Token_Type type) {
+  t->tokens[t->count] = {start, end, type};
   t->count++;
 }
 
-Token_Stream* tokenize_buffer(Buffer b) {
-  auto t = platform_alloc<Token_Stream>(1);
-  auto N = b.occupied;
+Token_Chunk* tokenize_buffer(Buffer b) {
+  auto character_count = b.occupied;
+  auto result_chunk =
+      new_token_chunk(character_count); // TODO: oversized, get a better metric
+                                        // count the number of spaces?
 
   u8 current_char;
-  for (int seek_index = 0; seek_index < N;) {
+  for (size_t seek_index = 0; seek_index <= character_count && current_char;) {
     current_char = b.data[seek_index];
 
     switch (current_char) {
     case '(': {
-      push_token(t, seek_index, seek_index + 1, TokenType_open_paren);
+      push_token(result_chunk, seek_index, seek_index + 1,
+                 TokenType_open_paren);
       seek_index++;
     } break;
     case ')': {
-      push_token(t, seek_index, seek_index + 1, TokenType_close_paren);
+      push_token(result_chunk, seek_index, seek_index + 1,
+                 TokenType_close_paren);
       seek_index++;
     } break;
+    // TODO: {} & []
     case '#': {
       size_t start_index = seek_index;
-      while (current_char != '\n') {
-        assert(current_char);
-        current_char = b.data[seek_index];
+      while (current_char != '\n' && current_char) {
         seek_index++;
+        current_char = b.data[seek_index];
       }
-      push_token(t, start_index, seek_index, TokenType_comment);
+      push_token(result_chunk, start_index, seek_index, TokenType_comment);
     } break;
 
-    default: {}
-      continue;
+    default: {
+      // ATOM OR LITERAL
+      size_t start_index = seek_index;
+      Token_Type type = TokenType_invalid;
+      while (current_char != '\n' && current_char) {
+        seek_index++;
+        current_char = b.data[seek_index];
+      }
+      push_token(result_chunk, start_index, seek_index, TokenType_comment);
+    } break;
     }
   }
-
-  return t;
 }
 
-void token_stream_free(Token_Stream* t) {
-  platform_free(t->tokens);
-  t->capacity = 0;
-  t->count = 0;
+return result_chunk;
 }
 
-void print_all_tokens(Token_Stream* t) {
+void free_token_chunk(Token_Chunk* t) { platform_free(t); }
+
+void print_token_chunk(Token_Chunk* t) {
   size_t N = t->count;
   for (size_t i = 0; i < N; i++) {
     auto token = t->tokens + i;
@@ -118,49 +142,34 @@ Buffer read_file_into_buffer(const char* name) {
   return b;
 }
 
-#include <stdarg.h>
-void sprintf(Buffer* buf, const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  unimplemented();
-}
-void format_into_buffer(Buffer* buf, const char* fmt, va_list vargs) {
-  unimplemented();
-};
+// #include <stdarg.h>
+// void sprintf(Buffer* buf, const char* fmt, ...) {
+//   va_list args;
+//   va_start(args, fmt);
+//   unimplemented();
+// }
+// void format_into_buffer(Buffer* buf, const char* fmt, va_list vargs) {
+//   unimplemented();
+// };
 
 int main(int argc, char* argv[]) {
 
-  // size_t program_size = 65536;
-  // char* program_buffer = new char[program_size]; // arbitrary number
-  // program_buffer[program_size] = 0;
-  // defer(delete[] program_buffer);
-
   for (;;) {
     printf("Begin.\n");
-    // clear the program buffer and take input
-    // util::memzero(program_buffer, program_size);
-    // printf("> ");
-    // getline(&program_buffer, &program_size, stdin);
-
-    // // check if the user exited
-    // if (util::strncmp(program_buffer, "!exit", 5) == 0) {
-    //   printf("Exiting.\n");
-    //   break;
-    // }
 
     printf("Open file.\n");
     auto program_text = read_file_into_buffer("data/test.scheme");
     defer(buffer_free(&program_text));
 
     // tokenize
-    // printf("Lex.\n");
+    printf("Lex.\n");
     auto t = tokenize_buffer(program_text);
-    defer(token_stream_free(t));
+    defer(free_token_chunk(t));
 
     // debug
-    print_all_tokens(t);
+    print_token_chunk(t);
 
-    // auto ast = parse_all_tokens_into_ast_tree(&token_stream);
+    // auto ast = parse_ast(t);
     break;
   }
 

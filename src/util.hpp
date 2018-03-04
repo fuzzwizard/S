@@ -33,11 +33,21 @@ inline void memcpy(void* dest, void* source, size_t n) {
   }
 };
 
-inline void memcpy(void* dest, const char* source, size_t n) {
+inline void strcpy(void* dest, const char* source, size_t n) {
   u8* copy_source = (u8*)source;
   u8* copy_dest = (u8*)dest;
   for (int i = 0; i < n; i++) {
     copy_dest[i] = copy_source[i];
+  }
+}
+
+inline void strcpy(void* dest, const char* source) {
+  u8* copy_source = (u8*)source;
+  u8* copy_dest = (u8*)dest;
+  while (*copy_source) {
+    *copy_dest = *copy_source;
+    copy_dest++;
+    copy_source++;
   }
 }
 

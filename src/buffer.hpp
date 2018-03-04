@@ -13,12 +13,23 @@ void buffer_init(Buffer* buf, size_t _capacity) {
   buf->occupied = 0;
 }
 
-void buffer_free(Buffer* buf) {
+static inline void buffer_free(Buffer* buf) {
   platform_free(buf->data);
   util::structzero(buf);
 }
 
 static inline u8* buffer_get_end(Buffer* b) { return b->data + b->occupied; }
+
+static inline void buffer_push_char(Buffer* b, u8 c) {
+  b->data[b->occupied] = c;
+  b->occupied++;
+}
+
+static inline void buffer_push_string(Buffer* b, const char* str) {
+  // util::strcpy(b->data, )
+}
+
+static inline void buffer_push_string(Buffer* b, const char* str, size_t len) {}
 
 // TODO: Actual SB impl
 #if 0
