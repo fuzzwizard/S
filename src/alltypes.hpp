@@ -113,6 +113,89 @@ void __print_warning(const char* file, const char* function, int line,
 #define warn(...)
 #endif
 
+template <typename T> struct Array {
+  size_t count;
+  size_t cap;
+  T* data;
+
+  T& operator[](int i) {
+    assert(i > 0);
+    assert(i < count);
+    return data[i];
+  }
+
+  Array(size_t _cap) {
+    init(0, _cap);
+    __allocate();
+  }
+
+  void __allocate() { data = (T*)realloc(data, cap); }
+
+  void __maybe_realloc(int amt_needed) {
+    // overflow risk adding an int to a uint
+    size_t cap_needed = count + amt_needed;
+    if (cap_needed >= cap) {
+      while (cap_needed >= cap)
+        cap *= 2;
+      __allocate();
+    }
+  }
+
+  void free() {
+    cap = 0;
+    count = 0;
+    __allocate();
+  }
+
+  void init(size_t _count, size_t _cap) {
+    count = _count;
+    cap = _cap < 8 ? 8 : _cap;
+    data = nullptr;
+  }
+
+  T last() { return data[count - 1]; }
+
+  void push(T value) {
+    __maybe_realloc(1);
+    data[count++] = value;
+  }
+
+  T pop() { return data[--count]; }
+
+  // add n unintialized items and return a ptr to the first
+  T* add(int n) {
+    __maybe_realloc(n);
+    count += n;
+    return data - n;
+  }
+
+  void fast_remove(size_t idx) {
+    assert(idx < count);
+    data[idx] = pop();
+  }
+
+  void remove(size_t idx) {
+    assert(idx < count);
+    while (idx < count)
+      data[idx] = data[++idx];
+    count--;
+  }
+
+  void insert(T value, size_t idx) {
+    assert(idx < count);
+    __maybe_realloc(1);
+    size_t swap_index = ++count;
+    while (swap_index >= idx) {
+      data[swap_index - 1] = data[swap_index--];
+    }
+    data[idx] = value;
+  }
+
+  size_t count_in_bytes() { return count * sizeof(T); }
+
+  size_t cap_in_bytes() { return cap * sizeof(T); }
+};
+
 struct Buffer {
   u8* data;
   size_t data_size;
