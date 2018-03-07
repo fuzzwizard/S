@@ -113,6 +113,75 @@ void __print_warning(const char* file, const char* function, int line,
 #define warn(...)
 #endif
 
+// NOTE: Testing required
+template <typename T> struct Queue {
+  T* inbox; // data home
+  size_t inbox_size;
+  T* outbox;
+  size_t outbox_size;
+  size_t space_left;
+
+  Queue(size_t cap) {
+    space_left = cap;
+    outbox_size = inbox_size = 0;
+    inbox = outbox = nullptr;
+  }
+
+  void initialize() {
+    inbox = (T*)realloc(inbox, space_left);
+    outbox = inbox + (space_left - 1);
+  }
+
+  void queue(T item) {
+    // push into the inbox
+    assert(space_left > 0);
+    push_inbox(item);
+  }
+
+  T dequeue() {
+    if (outbox_size == 0 && flush_inbox() == 0) {
+      return {0};
+    }
+    T result = pop_outbox();
+    space_left++;
+    return result;
+  }
+
+  void push_inbox(T item) {
+    inbox[inbox_size++] = item;
+    space_left--;
+  }
+
+  T pop_inbox() {
+    T result = inbox[inbox_size--];
+    space_left++;
+    return result;
+  }
+
+  T pop_outbox() {
+    T result = outbox[-outbox_size];
+    outbox_size--;
+    space_left++;
+    return result;
+  }
+
+  size_t flush_inbox() {
+    // TODO: TEST THIS
+    while (inbox_size > 0) {
+      outbox[-inbox_size] = inbox[inbox_size];
+      outbox_size++;
+      inbox_size--;
+    }
+    return outbox_size;
+  }
+
+  void push_outbox(T item) {
+    outbox[-outbox_size] = item;
+    space_left--;
+    outbox_size++;
+  }
+};
+
 template <typename T> struct Array {
   size_t count;
   size_t cap;
@@ -123,10 +192,17 @@ template <typename T> struct Array {
     assert(i < count);
     return data[i];
   }
+  Array(size_t _cap = 0) { initialize(_cap); }
 
-  Array(size_t _cap) {
-    init(0, _cap);
+  void initialize(size_t _cap, T* _data = nullptr, size_t _count = 0) {
+    __init(_cap, _data, _count);
     __allocate();
+  }
+
+  void __init(size_t _cap, T* _data = nullptr, size_t _count = 0) {
+    count = _count;
+    cap = _cap < 8 ? 8 : _cap;
+    data = _data;
   }
 
   void __allocate() { data = (T*)realloc(data, cap); }
@@ -147,12 +223,6 @@ template <typename T> struct Array {
     __allocate();
   }
 
-  void init(size_t _count, size_t _cap) {
-    count = _count;
-    cap = _cap < 8 ? 8 : _cap;
-    data = nullptr;
-  }
-
   T last() { return data[count - 1]; }
 
   void push(T value) {
@@ -165,8 +235,9 @@ template <typename T> struct Array {
   // add n unintialized items and return a ptr to the first
   T* add(int n) {
     __maybe_realloc(n);
+    T* res = &data[count];
     count += n;
-    return data - n;
+    return res;
   }
 
   void fast_remove(size_t idx) {
@@ -196,11 +267,7 @@ template <typename T> struct Array {
   size_t cap_in_bytes() { return cap * sizeof(T); }
 };
 
-struct Buffer {
-  u8* data;
-  size_t data_size;
-  size_t occupied;
-};
+using Buffer = Array<u8>;
 
 enum Token_Type {
   TokenType_stream_terminator,

@@ -29,11 +29,10 @@ const char* token_type_as_string(Token_Type type) {
 }
 
 struct Token_Chunk {
-  Token* tokens;
-  size_t capacity;
-  size_t count;
+  Array<Token> tokens;
+  Buffer file;
 };
-
+/*
 static inline Token_Chunk* new_token_chunk(size_t cap) {
   union {
     Token_Chunk* as_chunk;
@@ -43,7 +42,7 @@ static inline Token_Chunk* new_token_chunk(size_t cap) {
   const size_t chunk_size = sizeof(Token_Chunk) + (sizeof(Token) * cap);
   as_bytes = platform_alloc<u8>(chunk_size);
   assert(as_bytes);
-
+  as_chunk->init(0, cap);
   as_chunk->count = 0;
   as_chunk->capacity = cap;
   as_chunk->tokens = (Token*)(as_bytes + sizeof(Token_Chunk));
@@ -118,7 +117,7 @@ void print_token_chunk(Token_Chunk* t) {
            token->boundary_index, token_type_as_string(token->type));
   }
 };
-
+*/
 // TODO: linear allocator
 
 // Ast_Node* parse_all_tokens_into_ast_tree(Token_Stream*) { return nullptr; };
@@ -132,9 +131,8 @@ Buffer read_file_into_buffer(const char* name) {
   size_t final_file_size = ftell(file);
   fseek(file, 0, SEEK_SET);
 
-  buffer_init(&b, final_file_size);
+  b.initialize(final_file_size);
   fread(b.data, final_file_size, 1, file);
-  b.occupied = final_file_size;
 
   return b;
 }
@@ -160,11 +158,11 @@ int main(int argc, char* argv[]) {
 
     // tokenize
     printf("Lex.\n");
-    auto t = tokenize_buffer(program_text);
-    defer(free_token_chunk(t));
+    // auto t = tokenize_buffer(program_text);
+    // defer(free_token_chunk(t));
 
     // debug
-    print_token_chunk(t);
+    // print_token_chunk(t);
 
     // auto ast = parse_ast(t);
     break;
