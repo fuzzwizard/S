@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <utility>
 
 #define global_variable static
 #define local_persist static
@@ -65,7 +66,7 @@ typedef u8 bool8;
 #define Align8(Value) ((Value + 7) & ~7)
 #define Align16(Value) ((Value + 15) & ~15)
 
-#define IsWhiteSpace(Char) ((Char) == ' ' || (Char) == '\n' || (Char) == '\t')
+#define IsWhitespace(Char) ((Char) == ' ' || (Char) == '\n' || (Char) == '\t')
 #define IsNumber(Char) ((Char) >= '0' && (Char) <= '9')
 #define IsAlpha(Char)                                                          \
   (((Char) >= 'a' && (Char) <= 'z') && ((Char) >= 'A' && (Char) <= 'Z'))
@@ -104,7 +105,7 @@ void __print_warning(const char* file, const char* function, int line,
 #define unreachable(...)                                                       \
   __stop_everything(__FILE__, __func__, __LINE__, "Reached unreachable code.")
 #define unimplemented(...)                                                     \
-  __stop_everything(__FILE__, __func__, __LINE__, "Reached unimlemented code.")
+  __stop_everything(__FILE__, __func__, __LINE__, "NOT IMPLEMENTED !!!!!!")
 #define warn(Msg) __print_warning(__FILE__, __func__, __LINE__, Msg)
 #else
 #define assert(...)
@@ -113,86 +114,113 @@ void __print_warning(const char* file, const char* function, int line,
 #define warn(...)
 #endif
 
-// NOTE: Testing required
-template <typename T> struct Queue {
-  T* inbox; // data home
-  size_t inbox_size;
-  T* outbox;
-  size_t outbox_size;
-  size_t space_left;
+// TODO: Test these iteration macros
+#define FROM_back(Ptr, N, M, Counter)                                          \
+  size_t i_##Counter = N;                                                      \
+  for (auto it = &(Ptr)[i_##Counter]; i_##Counter < M; i_##Counter++)
+#define FROM(Ptr, N, M) FROM_back(Ptr, N, M, __COUNTER__)
 
-  Queue(size_t cap) {
-    space_left = cap;
-    outbox_size = inbox_size = 0;
-    inbox = outbox = nullptr;
+// unsafe scan
+#define SCAN_back(Ptr, N, Counter)                                             \
+  size_t i_##Counter = N;                                                      \
+  for (auto it = Ptr; i_##Counter; i_##Counter--, it++)
+#define SCAN(Ptr, N) SCAN_back(Ptr, N, __COUNTER__)
+
+#define FOR_back(ArrayPtr, Counter)                                            \
+  size_t i_##Counter = 0;                                                      \
+  for (auto it = (ArrayPtr)->data; i_##Counter < (ArrayPtr)->count;           \
+       i_##Counter++, it++)
+#define FOR(ArrayPtr) FOR_back(ArrayPtr, __COUNTER__)
+
+#define FOR_IDX_back(Elem, ArrayPtr, Counter)                                  \
+  auto Elem = (ArrayPtr)->data;                                               \
+  for (auto it_index = 0; it_index < (ArrayPtr)->count;                        \
+       it_index++, Elem++)
+#define FOR_IDX(Elem, ArrayPtr) FOR_IDX_back(Elem, ArrayPtr, __COUNTER__)
+
+#define UNIQUE(str) \
+  Cat(str, __COUNTER__)
+
+namespace _scope_guards {
+enum class ScopeGuardOnExit {};
+
+template <typename F> class ScopeGuard {
+  F fn;
+  ScopeGuard(F _fn) : fn(_fn){};
+  ~ScopeGuard() { fn(); }
+};
+
+template <typename F>
+ScopeGuard<F> operator+(ScopeGuardOnExit, F &&fn) {
+  return ScopeGuard<F>(std::forward<F>(fn));
+}
+}
+
+#define defer \
+  auto UNIQUE(deference_) = _scope_guards::ScopeGuardOnExit() + [&]()
+
+struct block_t {
+  void* data;
+  size_t size;
+  struct block_t* next;
+};
+
+namespace mem {
+static inline block_t alloc(size_t size) {
+  void* data = ::malloc(size);
+  if (!data) return {0};
+  return { data, size, 0 };
+}
+
+static inline block_t realloc(block_t blk, size_t new_size) {
+  blk.data = ::realloc(blk.data, new_size);
+  blk.size = new_size;
+  return blk;
+};
+
+static inline void free(block_t* blk) {
+  ::free(blk->data);
+};
+}
+
+template <typename T, int N> struct Mini_Array {
+  T *start, *end;
+  size_t cap;
+  u8* data[N * sizeof(T)];
+
+  Mini_Array() {
+    end = start = (T*)data;
+    cap = N;
   }
 
-  void initialize() {
-    inbox = (T*)realloc(inbox, space_left);
-    outbox = inbox + (space_left - 1);
+  T& operator[](int i) {
+    assert(start + i < end);
+    return start[i];
   }
 
-  void queue(T item) {
-    // push into the inbox
-    assert(space_left > 0);
-    push_inbox(item);
+  void push(T item) {
+    assert(end < data + cap);
+    *end++ = item;
   }
 
-  T dequeue() {
-    if (outbox_size == 0 && flush_inbox() == 0) {
-      return {0};
-    }
-    T result = pop_outbox();
-    space_left++;
-    return result;
-  }
-
-  void push_inbox(T item) {
-    inbox[inbox_size++] = item;
-    space_left--;
-  }
-
-  T pop_inbox() {
-    T result = inbox[inbox_size--];
-    space_left++;
-    return result;
-  }
-
-  T pop_outbox() {
-    T result = outbox[-outbox_size];
-    outbox_size--;
-    space_left++;
-    return result;
-  }
-
-  size_t flush_inbox() {
-    // TODO: TEST THIS
-    while (inbox_size > 0) {
-      outbox[-inbox_size] = inbox[inbox_size];
-      outbox_size++;
-      inbox_size--;
-    }
-    return outbox_size;
-  }
-
-  void push_outbox(T item) {
-    outbox[-outbox_size] = item;
-    space_left--;
-    outbox_size++;
+  T pop() {
+    assert(end != start);
+    return *end--;
   }
 };
 
+// TODO: Test the array
+// A destructor-free array.
 template <typename T> struct Array {
   size_t count;
   size_t cap;
   T* data;
 
+  Array(size_t _cap = 0) { initialize(_cap); }
   T& operator[](int i) {
-    assert(i > 0);
-    assert(i < count);
+    assert(i > 0 && i < count);
     return data[i];
   }
-  Array(size_t _cap = 0) { initialize(_cap); }
 
   void initialize(size_t _cap, T* _data = nullptr, size_t _count = 0) {
     __init(_cap, _data, _count);
@@ -211,8 +239,7 @@ template <typename T> struct Array {
     // overflow risk adding an int to a uint
     size_t cap_needed = count + amt_needed;
     if (cap_needed >= cap) {
-      while (cap_needed >= cap)
-        cap *= 2;
+      while (cap_needed >= cap) cap *= 2;
       __allocate();
     }
   }
@@ -223,21 +250,27 @@ template <typename T> struct Array {
     __allocate();
   }
 
+  T first() { return data[0]; }
   T last() { return data[count - 1]; }
+  T* end_ptr() { return data + (count - 1); }
+  T* begin_ptr() { return data; }
+  T* at(size_t idx) {
+    assert(idx > 0 && idx < count);
+    return data + idx;
+  }
 
   void push(T value) {
     __maybe_realloc(1);
     data[count++] = value;
   }
-
   T pop() { return data[--count]; }
+
 
   // add n unintialized items and return a ptr to the first
   T* add(int n) {
     __maybe_realloc(n);
-    T* res = &data[count];
     count += n;
-    return res;
+    return &data[count - n];
   }
 
   void fast_remove(size_t idx) {
@@ -247,8 +280,7 @@ template <typename T> struct Array {
 
   void remove(size_t idx) {
     assert(idx < count);
-    while (idx < count)
-      data[idx] = data[++idx];
+    while (idx < count) data[idx] = data[++idx];
     count--;
   }
 
@@ -263,8 +295,9 @@ template <typename T> struct Array {
   }
 
   size_t count_in_bytes() { return count * sizeof(T); }
-
   size_t cap_in_bytes() { return cap * sizeof(T); }
+  void zero() { util::memzero<T>(data, count); }
+  void zero_all() { util::memzero<T>(data, cap); }
 };
 
 using Buffer = Array<u8>;
@@ -297,4 +330,44 @@ struct Token {
   size_t start_index = 0;
   size_t boundary_index = 0;
   Token_Type type = TokenType_invalid;
+};
+
+struct Token_Chunk {
+  Array<Token> tokens;
+  Buffer* file;
+};
+
+struct Scanner {
+  Buffer* buf;
+
+  Scanner(Buffer* _buf) : buf(_buf) {}
+
+  u8 peek() { return buf->last(); }
+
+  bool at_end() { return buf->count == buf->cap; }
+
+  bool match(const char* pattern) {
+    int len = strlen(pattern);
+    if (len > (buf->cap - buf->count)) return false;
+    return strncmp(
+      pattern,
+      (const char *)buf->end_ptr(),
+      len) == 0;
+  }
+
+  u8 peek_next() {
+    if (at_end() || (buf->count + 1) == buf->cap) return '\0';
+    u8 result = buf->end_ptr()[1];
+    return result;
+  }
+
+  u8 advance() {
+    if (at_end()) return '\0';
+    buf->count++;
+    return peek();
+  }
+
+  void eat_whitespace() {
+    while (IsWhitespace(peek())) advance();
+  }
 };

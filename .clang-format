@@ -3,3 +3,5 @@ Language: Cpp
 DerivePointerAlignment: false
 PointerAlignment: Left
 ColumnLimit: 80
+AllowShortLoopsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
